@@ -1,19 +1,25 @@
 #include <stdio.h>
 #include <stdlib.h>
+#include <string.h>
+#include <time.h>
 #include "map.h"
+#include "genome.h"
 
+//--------------------------MAP_LIB---------------------------------------------
+
+//-------------------------------------------GEN LIB ----------------------------------------------------
+
+//-------------------------------------------TEST CODE---------------------------------------------------
 int main(){
 
-    printf("Helloooo\n");
-    element gg;
-    Node* fn = (Node*)malloc(sizeof(Node));
-    fn->id = 1;
-    fn->type = INPUT_NODE;
-    gg.node = fn;
-    Map* myMap = createMap(5);
-    put(myMap, 1, gg);
-    element result = get(myMap, 1);
-    printf("the first node of your map has the id of %ld and it's type is: %d", result.node->id, result.node->type);
-    destroyMap(myMap);
+    Genome* newGene = initGenome(3, 1);
+    printGenome(newGene);
+    Node* newNode = (Node*)malloc(sizeof(Node));
+    newNode->id = newGene->nodes + 1;
+    newNode->type = HIDDEN_NODE;
+    addNodeGene(newGene, newNode);
+    printf("------------------------- New Node Added TEST -------------------------\n");
+    printGenome(newGene);
+    destroyGenome(newGene);
     return 0;
 }
