@@ -47,6 +47,9 @@ typedef struct
 Map* createMap(size_t initialSize);
 void put(Map* map, size_t key, element value);
 element get(Map* map, size_t key);
+bool contains(Map* map, size_t key);
+void copyElement(element source, element* target);
+void resizeMap(Map* map, size_t newSize);
 void destroyMap(Map* map);
 
 

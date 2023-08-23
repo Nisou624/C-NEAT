@@ -1,20 +1,30 @@
 #include <stdlib.h>
 #include <string.h>
 #include <time.h>
+#include <stdbool.h>
 #include "genome.h"
 #include "map.h"
 
-//function for initialising a Genome
-Genome* initGenome(size_t inNodes, size_t outNodes){
+static size_t GlobalInnovationNumber = 0;
 
-    srand(time(NULL));
-
-    //Initialize the genome with 0 nodes and 1 innovation && HashMaps for nodes and connection Genes
-    Genome* newGenome = (Genome*)malloc(sizeof(Genome));
+//Initialize the genome with 0 nodes and 1 innovation && HashMaps for nodes and connection Genes
+void initGenome(Genome* newGenome, size_t inNodes, size_t outNodes){
     newGenome->nodes = 0;
     newGenome->innov = 1;
     Map* nodesGene = createMap((inNodes + outNodes + 1)*2);
     Map* connectionGene = createMap((inNodes + outNodes) *2);
+    newGenome->NodeGene = nodesGene; 
+    newGenome->ConnectionGene = connectionGene;
+}
+//function for initialising a Genome with random parameters
+Genome* initRGenome(size_t inNodes, size_t outNodes){
+
+    srand(time(NULL));
+
+    //Initializing the genome with default parameters
+    Genome* newGenome = (Genome*)malloc(sizeof(Genome));
+    initGenome(newGenome, inNodes, outNodes);
+    
 
     //Adding one hidden node per default
     element tmp;
@@ -22,7 +32,7 @@ Genome* initGenome(size_t inNodes, size_t outNodes){
     hNode->id = inNodes + outNodes + 1;
     hNode->type = HIDDEN_NODE;
     tmp.node = hNode;
-    put(nodesGene, hNode->id, tmp);
+    put(newGenome->NodeGene, hNode->id, tmp);
     newGenome->nodes++;
 
     /*
@@ -35,7 +45,7 @@ Genome* initGenome(size_t inNodes, size_t outNodes){
         nNode->id = i + 1;
         nNode->type = INPUT_NODE;
         node.node = nNode;
-        put(nodesGene, nNode->id, node);
+        put(newGenome->NodeGene, nNode->id, node);
         newGenome->nodes++;
 
         element con;
@@ -44,10 +54,10 @@ Genome* initGenome(size_t inNodes, size_t outNodes){
         newCon->inNode = nNode->id;
         newCon->outNode = hNode->id;
         newCon->weight = (float)rand() /RAND_MAX;
-        newCon->innovation = newGenome->innov;
+        newCon->innovation = GlobalInnovationNumber;
         con.connection = newCon;
-        put(connectionGene, newCon->innovation, con);
-        newGenome->innov++;
+        put(newGenome->ConnectionGene, newCon->innovation, con);
+        incrInnov();
     }
     
     /*
@@ -61,7 +71,7 @@ Genome* initGenome(size_t inNodes, size_t outNodes){
         nNode->id = i + inNodes + 1;
         nNode->type = OUTPUT_NODE;
         node.node = nNode;
-        put(nodesGene, nNode->id, node);
+        put(newGenome->NodeGene, nNode->id, node);
         newGenome->nodes++;
 
         element con;
@@ -70,14 +80,11 @@ Genome* initGenome(size_t inNodes, size_t outNodes){
         newCon->inNode = hNode->id;
         newCon->outNode = nNode->id;
         newCon->weight = (float)rand() /RAND_MAX;
-        newCon->innovation = newGenome->innov;
+        newCon->innovation = GlobalInnovationNumber;
         con.connection = newCon;
-        put(connectionGene, newCon->innovation, con);
-        if(i != outNodes -1) newGenome->innov++;
+        put(newGenome->ConnectionGene, newCon->innovation, con);
+        if(i != outNodes -1) incrInnov();
     }
-
-    newGenome->ConnectionGene = connectionGene;
-    newGenome->NodeGene = nodesGene;
 };
 
 //function to add a Node to the genome provided as a parameter (used for mutations)
@@ -111,20 +118,20 @@ void addNodeMutation(Genome* genome, size_t r){
     inToNew->enabled = 1;
     inToNew->inNode = c->inNode;
     inToNew->outNode = newNode->id;
-    inToNew->innovation = genome->innov + 1;
+    inToNew->innovation = GlobalInnovationNumber + 1;
     inToNew->weight = 1.0f;
     addConnectionGene(genome, inToNew);
-    genome->innov++;
+    incrInnov();
 
     //creating the connection from the new Node to the outNode
     Connection* newToOut = (Connection*)malloc(sizeof(Connection));
     inToNew->enabled = 1;
     inToNew->inNode = newNode->id;
     inToNew->outNode = c->outNode;
-    inToNew->innovation = genome->innov + 1;
+    inToNew->innovation = GlobalInnovationNumber + 1;
     inToNew->weight = c->weight;
     addConnectionGene(genome, newToOut);
-    genome->innov++;
+    incrInnov();
 
 };
 
@@ -163,11 +170,56 @@ void addConnectionMutation(Genome* genome, size_t r1, size_t r2){
                 newCon.connection->outNode = n1; 
             }
             newCon.connection->weight = (float)rand() /RAND_MAX;
-            newCon.connection->innovation = genome->innov + 1;
-            genome->innov++;
+            newCon.connection->innovation = GlobalInnovationNumber + 1;
+            incrInnov();
             put(genome->ConnectionGene, newCon.connection->innovation, newCon);
         }
     }
+}
+
+/*
+    function that evaluates the performance of the genome and gives it a fitness (score)
+        for now we assign a determined fitness for testing
+*/
+void evaluate(Genome* genome, size_t fitness){
+    genome->fitness = fitness;
+}
+
+//mating two parent genomes
+Genome* crossover(Genome* parent1, Genome* parent2){
+    bool randbool = rand() & 1;
+    Genome* child = (Genome*)malloc(sizeof(Genome));
+    Genome* fp = NULL;
+    element Nelement;
+    element Celement;
+    initGenome(child, parent1->nodes >= parent2->nodes ? parent1->nodes - 1 : parent2->nodes - 1, 1);
+    bool eqFitness = parent1->fitness == parent2->fitness ? true : false;
+    if(!eqFitness) fp = parent1->fitness > parent2->fitness ? parent1 : parent2;
+    for (size_t i = 1; i <= GlobalInnovationNumber; i++)
+    {
+        Nelement = get(child->NodeGene,i);
+        copyElement(get(fp ? fp->NodeGene : parent1->NodeGene, i), &Nelement);
+        put(child->NodeGene, i, Nelement);
+        if(contains(parent1->ConnectionGene, i) && contains(parent2->ConnectionGene, i)){
+            Celement = get(child->ConnectionGene, i);
+            copyElement(get(randbool ? parent1->ConnectionGene : parent2->ConnectionGene, i), &Celement );
+            put(child->ConnectionGene, i, Celement);
+        }else{
+            if(fp){
+                Celement = get(child->ConnectionGene, i);
+                copyElement(get(fp->ConnectionGene, i), &Celement );
+                put(child->ConnectionGene, i, Celement);
+            }else{
+                randbool = rand() & 1;
+                Celement = get(child->ConnectionGene, i);
+                copyElement(get(randbool ? parent1->ConnectionGene : parent2->ConnectionGene, i), &Celement );
+                if(!Celement.connection->enabled) Celement.connection->enabled = randbool;
+                put(child->ConnectionGene, i, Celement);
+            }
+        }
+    }
+    
+    
 }
 
 //function to print the nodes and connection Genes of a genome (for test purposes and future implementation of visualization)
@@ -201,9 +253,12 @@ void printGenome(Genome* newGene){
     element cons;
     printf("Connections{\n");
     char enabled[10];
-    for (size_t i = 0; i < newGene->innov; i++)
+    for (size_t i = 0; i < GlobalInnovationNumber; i++)
     {
         cons.connection = get(newGene->ConnectionGene, i+1).connection;
+        if (cons.connection == NULL) {
+            continue;
+        }
         switch (cons.connection->enabled)
         {
         case 1:
@@ -224,6 +279,26 @@ void printGenome(Genome* newGene){
     printf("}\n");
 }
 
+Genome* copyGenome(Genome* source){
+    element node;
+    element connection;
+    Genome* newGenome = (Genome*)malloc(sizeof(Genome));
+    newGenome->ConnectionGene = createMap(source->ConnectionGene->size);    
+    newGenome->NodeGene = createMap(source->NodeGene->size);
+    for (size_t i = 0; i < source->nodes; i++)
+    {
+        node = get(newGenome->NodeGene, i+1);
+        copyElement(get(source->NodeGene, i+1), &node);
+    }
+    for (size_t i = 1; i <= source->ConnectionGene->size; i++)
+    {
+        connection = get(newGenome->ConnectionGene, i);
+        copyElement(get(source->ConnectionGene, i), &connection);
+    }
+    
+    return newGenome;  
+}
+
 //self explanatory
 void destroyGenome(Genome* genome){
     destroyMap(genome->ConnectionGene);
@@ -231,3 +306,7 @@ void destroyGenome(Genome* genome){
     free(genome);
 }
 
+//function to increament the Innovation Number of the Gene
+void incrInnov(){
+    GlobalInnovationNumber++;
+}
