@@ -8,11 +8,14 @@ extern GlobalInnovationNumber;
 typedef struct
 {
     size_t nodes;
+    size_t input;
+    size_t output;
     size_t innov;
     float fitness;
     Map* NodeGene;
     Map* ConnectionGene;
 }Genome;
+
 
 void initGenome(Genome* newGenome, size_t inNodes, size_t outNodes);
 Genome* initRGenome(size_t inNodes, size_t outNodes);

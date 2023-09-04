@@ -12,6 +12,7 @@ typedef enum {
 typedef struct 
 {
     size_t id;
+    float score;
     NODE_TYPE type;
 }Node;
 

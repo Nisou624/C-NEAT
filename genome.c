@@ -1,11 +1,13 @@
 #include <stdlib.h>
 #include <string.h>
 #include <time.h>
+#include <math.h>
 #include <stdbool.h>
+#include <assert.h>
 #include "genome.h"
 #include "map.h"
 
-static size_t GlobalInnovationNumber = 0;
+static size_t GlobalInnovationNumber = 1;
 
 //Initialize the genome with 0 nodes and 1 innovation && HashMaps for nodes and connection Genes
 void initGenome(Genome* newGenome, size_t inNodes, size_t outNodes){
@@ -16,6 +18,7 @@ void initGenome(Genome* newGenome, size_t inNodes, size_t outNodes){
     newGenome->NodeGene = nodesGene; 
     newGenome->ConnectionGene = connectionGene;
 }
+
 //function for initialising a Genome with random parameters
 Genome* initRGenome(size_t inNodes, size_t outNodes){
 
@@ -34,6 +37,7 @@ Genome* initRGenome(size_t inNodes, size_t outNodes){
     tmp.node = hNode;
     put(newGenome->NodeGene, hNode->id, tmp);
     newGenome->nodes++;
+
 
     /*
         Loop for the Input Nodes:
@@ -85,6 +89,7 @@ Genome* initRGenome(size_t inNodes, size_t outNodes){
         put(newGenome->ConnectionGene, newCon->innovation, con);
         if(i != outNodes -1) incrInnov();
     }
+    return newGenome;
 };
 
 //function to add a Node to the genome provided as a parameter (used for mutations)
@@ -185,6 +190,62 @@ void evaluate(Genome* genome, size_t fitness){
     genome->fitness = fitness;
 }
 
+
+/*
+    should have a map of Node_id weight pair or just weight (decide that later)
+        feeding the weight to the input nodes of the genome
+        looping through the connectionGene and calculating the score of each node
+        returning the final score of the output node(s) 
+*/
+void feedForward(float* inputs, size_t length, Genome* genome){
+
+    assert(length == genome->input);
+
+    size_t hiddenIds[genome->nodes];
+    size_t remainingConnections[GlobalInnovationNumber];
+    size_t cc = 0;
+    Connection* con;
+
+    float score = 0;
+    for (size_t i = 0; i < length; i++)
+    {
+        Node* node = get(genome->NodeGene, i + 1 ).node;
+        node->score = sigmoid(inputs[i]);
+    }
+    
+    for (size_t i = 1; i <= genome->ConnectionGene->size; i++)
+    {
+        con = get(genome->ConnectionGene, i).connection;
+        if(!con){
+            continue;
+        }
+        if(get(genome->NodeGene, con->inNode).node->type == HIDDEN_NODE){
+            remainingConnections[cc] = con->innovation;
+            cc++;
+        }
+        get(genome->NodeGene, con->outNode).node->score += get(genome->NodeGene, con->inNode).node->score * con->weight;
+    }
+
+    for (size_t i = 0; i < cc; i++)
+    {
+        con = get(genome->ConnectionGene, remainingConnections[i]).connection;
+        if(!con){
+            continue;
+        }
+        get(genome->NodeGene, con->outNode).node->score += get(genome->NodeGene, con->inNode).node->score * con->weight;
+    }
+
+    for (size_t i = genome->input; i < genome->input + genome->output; i++)
+    {
+        get(genome->NodeGene, i + 1).node->score = sigmoid(get(genome->NodeGene, i + 1).node->score);
+    }
+    
+}
+
+float sigmoid(float s){
+    return 1.0f / 1 + expf(- s);
+}
+
 //mating two parent genomes
 Genome* crossover(Genome* parent1, Genome* parent2){
     bool randbool = rand() & 1;
@@ -192,14 +253,24 @@ Genome* crossover(Genome* parent1, Genome* parent2){
     Genome* fp = NULL;
     element Nelement;
     element Celement;
-    initGenome(child, parent1->nodes >= parent2->nodes ? parent1->nodes - 1 : parent2->nodes - 1, 1);
+    size_t childNodes = parent1->nodes >= parent2->nodes ? parent1->nodes : parent2->nodes;
+    size_t childConnections = parent1->ConnectionGene->size >= parent2->ConnectionGene->size ? parent1->ConnectionGene->size : parent2->ConnectionGene->size;
+    child->ConnectionGene = createMap(childConnections);
+    child->NodeGene = createMap(childNodes);
+    initGenome(child, childNodes - 1, 1);
     bool eqFitness = parent1->fitness == parent2->fitness ? true : false;
     if(!eqFitness) fp = parent1->fitness > parent2->fitness ? parent1 : parent2;
-    for (size_t i = 1; i <= GlobalInnovationNumber; i++)
+    for (size_t i = 0; i < childNodes; i++)
     {
-        Nelement = get(child->NodeGene,i);
-        copyElement(get(fp ? fp->NodeGene : parent1->NodeGene, i), &Nelement);
-        put(child->NodeGene, i, Nelement);
+        Nelement = get(child->NodeGene,i + 1);
+        copyElement(get(fp ? fp->NodeGene : parent1->NodeGene, i + 1), &Nelement);
+        put(child->NodeGene, i + 1, Nelement);
+        child->nodes++;
+    }
+    
+    for (size_t i = 1; i <= childConnections; i++)
+    {
+        randbool = rand() & 1;
         if(contains(parent1->ConnectionGene, i) && contains(parent2->ConnectionGene, i)){
             Celement = get(child->ConnectionGene, i);
             copyElement(get(randbool ? parent1->ConnectionGene : parent2->ConnectionGene, i), &Celement );
@@ -210,7 +281,6 @@ Genome* crossover(Genome* parent1, Genome* parent2){
                 copyElement(get(fp->ConnectionGene, i), &Celement );
                 put(child->ConnectionGene, i, Celement);
             }else{
-                randbool = rand() & 1;
                 Celement = get(child->ConnectionGene, i);
                 copyElement(get(randbool ? parent1->ConnectionGene : parent2->ConnectionGene, i), &Celement );
                 if(!Celement.connection->enabled) Celement.connection->enabled = randbool;
@@ -218,7 +288,49 @@ Genome* crossover(Genome* parent1, Genome* parent2){
             }
         }
     }
+    return child;   
+}
+
+
+//function to speciate a genome
+bool speciate(Genome* mascote, Genome* candidate, float c1, float c2, float c3){
+    bool result;
+    float formula;
+    size_t nodesNumber = mascote->nodes >= candidate->nodes ? mascote->nodes : candidate->nodes;
+    size_t connectionsNumber = mascote->ConnectionGene->size >= candidate->ConnectionGene->size ? mascote->ConnectionGene->size : candidate->ConnectionGene->size;
+    size_t matchingGenes = 0, excessGenes = 0, disjointGenes = 0, averageWeights = 0;
+
+
+    for (size_t i = 0; i < nodesNumber; i++)
+    {
+        if(contains(mascote->NodeGene, i) && contains(candidate->NodeGene, i)){
+            matchingGenes++;
+        }else if ((contains(mascote->NodeGene, i) && i > candidate->nodes) || (contains(candidate->NodeGene, i) && i > mascote->nodes) )
+        {
+            excessGenes++;
+        }else{
+            disjointGenes++;
+        }
+    }
     
+
+    for (size_t i = 1; i <= connectionsNumber; i++)
+    {
+        if(contains(mascote->ConnectionGene, i) && contains(candidate->ConnectionGene, i)){
+            matchingGenes++;
+            averageWeights += abs(get(mascote->ConnectionGene, i).connection->weight - get(candidate->ConnectionGene, i).connection->weight);
+        }else if ((contains(mascote->ConnectionGene, i) && i > candidate->ConnectionGene->size) || (contains(candidate->ConnectionGene, i) && i > mascote->ConnectionGene->size) )
+        {
+            excessGenes++;
+        }else{
+            disjointGenes++;
+        }
+    }
+
+    averageWeights /= matchingGenes;
+    formula = (c1 * excessGenes) + (c2 * disjointGenes) + (c3 * averageWeights);
+
+    return result = formula >= 0.5 ? true : false;
     
 }
 
@@ -229,6 +341,9 @@ void printGenome(Genome* newGene){
     for (size_t i = 0; i < newGene->nodes; i++)
     {
         nodes = get(newGene->NodeGene, i+1);
+        if(!nodes.node){
+            continue;
+        }
         switch (nodes.node->type)
         {
         case INPUT_NODE:
@@ -253,10 +368,10 @@ void printGenome(Genome* newGene){
     element cons;
     printf("Connections{\n");
     char enabled[10];
-    for (size_t i = 0; i < GlobalInnovationNumber; i++)
+    for (size_t i = 0; i < newGene->ConnectionGene->size; i++)
     {
         cons.connection = get(newGene->ConnectionGene, i+1).connection;
-        if (cons.connection == NULL) {
+        if (!cons.connection) {
             continue;
         }
         switch (cons.connection->enabled)
@@ -287,13 +402,15 @@ Genome* copyGenome(Genome* source){
     newGenome->NodeGene = createMap(source->NodeGene->size);
     for (size_t i = 0; i < source->nodes; i++)
     {
-        node = get(newGenome->NodeGene, i+1);
+        node.node = (Node*)malloc(sizeof(Node));
         copyElement(get(source->NodeGene, i+1), &node);
+        put(newGenome->NodeGene, i+1, node);
     }
     for (size_t i = 1; i <= source->ConnectionGene->size; i++)
     {
-        connection = get(newGenome->ConnectionGene, i);
+        connection.connection = (Connection*)malloc(sizeof(Connection));
         copyElement(get(source->ConnectionGene, i), &connection);
+        put(newGenome->ConnectionGene, i, connection);
     }
     
     return newGenome;  

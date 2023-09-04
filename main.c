@@ -2,6 +2,8 @@
 #include <stdlib.h>
 #include <string.h>
 #include <time.h>
+#include <math.h>
+#include <assert.h>
 #include <stdbool.h>
 //#include "map.h"
 //#include "genome.h"
@@ -16,6 +18,7 @@ typedef enum {
 typedef struct 
 {
     size_t id;
+    float score;
     NODE_TYPE type;
 }Node;
 
@@ -125,6 +128,8 @@ void destroyMap(Map* map){
 typedef struct
 {
     size_t nodes;
+    size_t input;
+    size_t output;
     size_t innov;
     float fitness;
     Map* NodeGene;
@@ -142,6 +147,7 @@ void initGenome(Genome* newGenome, size_t inNodes, size_t outNodes){
     newGenome->NodeGene = nodesGene; 
     newGenome->ConnectionGene = connectionGene;
 }
+
 //function for initialising a Genome with random parameters
 Genome* initRGenome(size_t inNodes, size_t outNodes){
 
@@ -313,6 +319,62 @@ void evaluate(Genome* genome, size_t fitness){
     genome->fitness = fitness;
 }
 
+float sigmoidf(float s){
+    return 1.0f / (1 + expf(- s));
+}
+
+/*
+    should have a map of Node_id weight pair or just weight (decide that later)
+        feeding the weight to the input nodes of the genome
+        looping through the connectionGene and calculating the score of each node
+        returning the final score of the output node(s) 
+*/
+void feedForward(float* inputs, size_t length, Genome* genome){
+
+    assert(length == genome->input);
+
+    size_t hiddenIds[genome->nodes];
+    size_t remainingConnections[GlobalInnovationNumber];
+    size_t cc = 0;
+    Connection* con;
+
+    float score = 0;
+    for (size_t i = 0; i < length; i++)
+    {
+        Node* node = get(genome->NodeGene, i + 1 ).node;
+        node->score = sigmoidf(inputs[i]);
+    }
+    
+    for (size_t i = 1; i <= genome->innov; i++)
+    {
+        con = get(genome->ConnectionGene, i).connection;
+        if(!con){
+            continue;
+        }
+        if(get(genome->NodeGene, con->inNode).node->type == HIDDEN_NODE){
+            remainingConnections[cc] = con->innovation;
+            cc++;
+        }
+        get(genome->NodeGene, con->outNode).node->score += get(genome->NodeGene, con->inNode).node->score * con->weight;
+    }
+
+    for (size_t i = 0; i < cc; i++)
+    {
+        con = get(genome->ConnectionGene, remainingConnections[i]).connection;
+        if(!con){
+            continue;
+        }
+        get(genome->NodeGene, con->outNode).node->score += get(genome->NodeGene, con->inNode).node->score * con->weight;
+    }
+
+    for (size_t i = genome->input; i < genome->input + genome->output; i++)
+    {
+        get(genome->NodeGene, i + 1).node->score = sigmoidf(get(genome->NodeGene, i + 1).node->score);
+    }
+    
+}
+
+
 //mating two parent genomes
 Genome* crossover(Genome* parent1, Genome* parent2){
     bool randbool = rand() & 1;
@@ -356,6 +418,49 @@ Genome* crossover(Genome* parent1, Genome* parent2){
         }
     }
     return child;   
+}
+
+
+//function to speciate a genome
+bool speciate(Genome* mascote, Genome* candidate, float c1, float c2, float c3){
+    bool result;
+    float formula;
+    size_t nodesNumber = mascote->nodes >= candidate->nodes ? mascote->nodes : candidate->nodes;
+    size_t connectionsNumber = mascote->ConnectionGene->size >= candidate->ConnectionGene->size ? mascote->ConnectionGene->size : candidate->ConnectionGene->size;
+    size_t matchingGenes = 0, excessGenes = 0, disjointGenes = 0, averageWeights = 0;
+
+
+    for (size_t i = 0; i < nodesNumber; i++)
+    {
+        if(contains(mascote->NodeGene, i) && contains(candidate->NodeGene, i)){
+            matchingGenes++;
+        }else if ((contains(mascote->NodeGene, i) && i > candidate->nodes) || (contains(candidate->NodeGene, i) && i > mascote->nodes) )
+        {
+            excessGenes++;
+        }else{
+            disjointGenes++;
+        }
+    }
+    
+
+    for (size_t i = 1; i <= connectionsNumber; i++)
+    {
+        if(contains(mascote->ConnectionGene, i) && contains(candidate->ConnectionGene, i)){
+            matchingGenes++;
+            averageWeights += abs(get(mascote->ConnectionGene, i).connection->weight - get(candidate->ConnectionGene, i).connection->weight);
+        }else if ((contains(mascote->ConnectionGene, i) && i > candidate->ConnectionGene->size) || (contains(candidate->ConnectionGene, i) && i > mascote->ConnectionGene->size) )
+        {
+            excessGenes++;
+        }else{
+            disjointGenes++;
+        }
+    }
+
+    averageWeights /= matchingGenes;
+    formula = (c1 * excessGenes) + (c2 * disjointGenes) + (c3 * averageWeights);
+
+    return result = formula >= 0.5 ? true : false;
+    
 }
 
 //function to print the nodes and connection Genes of a genome (for test purposes and future implementation of visualization)
@@ -461,28 +566,36 @@ int main(){
     //------------------------------------------------NODE 1
     Node* nn = (Node*)malloc(sizeof(Node));
     nn->id = 1;
+    nn->score = 0;
     nn->type = INPUT_NODE;
     addNodeGene(parent1, nn);
     //------------------------------------------------NODE 2
     nn = (Node*)malloc(sizeof(Node));
     nn->id = 2;
+    nn->score = 0;
     nn->type = INPUT_NODE;
     addNodeGene(parent1, nn);
     //------------------------------------------------NODE 3
     nn = (Node*)malloc(sizeof(Node));
     nn->id = 3;
+    nn->score = 0;
     nn->type = INPUT_NODE;
     addNodeGene(parent1, nn);
     //------------------------------------------------NODE 4
     nn = (Node*)malloc(sizeof(Node));
     nn->id = 4;
+    nn->score = 0;
     nn->type = OUTPUT_NODE;
     addNodeGene(parent1, nn);
     //------------------------------------------------NODE 5
     nn = (Node*)malloc(sizeof(Node));
     nn->id = 5;
+    nn->score = 0;
     nn->type = HIDDEN_NODE;
     addNodeGene(parent1, nn);
+
+    Genome* test = (Genome*)malloc(sizeof(Genome));
+    test = copyGenome(parent1);
     //------------------------------------------------CONNEXION 1
     Connection* cnx = (Connection*)malloc(sizeof(Connection));
     cnx->enabled = true;
@@ -584,8 +697,25 @@ int main(){
     printGenome(parent1);
     printf("-----------------------------------PARENT 2---------------------------------------------\n");
     printGenome(parent2);
-    printf("-----------------------------------CHILD---------------------------------------------\n");
-    printGenome(child);
+    //printf("-----------------------------------CHILD---------------------------------------------\n");
+    //printGenome(child);
+
+    
+    float values[3] = {3.14, 5.23, 0.25};
+    float nada[3] = {0.0, 0.0, 0.0};
+    test->input = 3;
+    test->output = 1;
+    test->nodes = 4;
+    test->innov = 0;
+    feedForward(nada, 3, test);
+    Node* act = get(test->NodeGene, 1).node;
+    printf("test input number %zu score is : %.4f\n", act->id, act->score);
+    act = get(test->NodeGene, 2).node;
+    printf("test input number %zu score is : %.4f\n", act->id, act->score);
+    act = get(test->NodeGene, 3).node;
+    printf("test input number %zu score is : %.4f\n", act->id, act->score);
+    act = get(test->NodeGene, 4).node;
+    printf("test Output number %zu score is : %.4f\n", act->id, act->score);
     destroyGenome(parent1);
     destroyGenome(parent2);
     destroyGenome(child);
