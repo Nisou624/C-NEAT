@@ -60,6 +60,21 @@ Map* createMap(size_t initialSize){
     return map;
 }
 
+void resizeMap(Map* map, size_t newSize){
+    Pair** newData = (Pair**)calloc(newSize, sizeof(Pair*));
+   for (size_t i = 1; i < map->size; i++) {
+        Pair* entry = map->data[i];
+        if (entry) {
+            size_t newIndex = hash(entry->key, newSize);
+            newData[newIndex] = entry;
+        }
+    }
+
+    free(map->data);
+    map->data = newData;
+    map->size = newSize;
+}
+
 void put(Map* map, size_t key, element value){
     if(key > map->size) resizeMap(map, key + 5);
     size_t index = hash(key, map->size);
@@ -98,21 +113,6 @@ void copyElement(element source, element* target){
     }
 }
 
-void resizeMap(Map* map, size_t newSize){
-    Pair** newData = (Pair**)calloc(newSize, sizeof(Pair*));
-   for (size_t i = 1; i < map->size; i++) {
-        Pair* entry = map->data[i];
-        if (entry) {
-            size_t newIndex = hash(entry->key, newSize);
-            newData[newIndex] = entry;
-        }
-    }
-
-    free(map->data);
-    map->data = newData;
-    map->size = newSize;
-}
-
 void destroyMap(Map* map){
     for(size_t i = 0; i< map->size; ++i){
         if(map->data[i]){
@@ -137,6 +137,11 @@ typedef struct
 }Genome;
 
 static size_t GlobalInnovationNumber = 1;
+
+//function to increament the Innovation Number of the Gene
+void incrInnov(){
+    GlobalInnovationNumber++;
+}
 
 //Initialize the genome with 0 nodes and 1 innovation && HashMaps for nodes and connection Genes
 void initGenome(Genome* newGenome, size_t inNodes, size_t outNodes){
@@ -296,12 +301,12 @@ void addConnectionMutation(Genome* genome, size_t r1, size_t r2){
             newCon.connection->enabled = 1;
             if(n1->type != OUTPUT_NODE){
                 if(n2->type != INPUT_NODE){
-                  newCon.connection->inNode = n1;
-                  newCon.connection->outNode = n2;  
+                  newCon.connection->inNode = n1->id;
+                  newCon.connection->outNode = n2->id;  
                 }
             }else{
-                newCon.connection->inNode = n2;
-                newCon.connection->outNode = n1; 
+                newCon.connection->inNode = n2->id;
+                newCon.connection->outNode = n1->id; 
             }
             newCon.connection->weight = (float)rand() /RAND_MAX;
             newCon.connection->innovation = GlobalInnovationNumber + 1;
@@ -402,18 +407,27 @@ Genome* crossover(Genome* parent1, Genome* parent2){
         randbool = rand() & 1;
         if(contains(parent1->ConnectionGene, i) && contains(parent2->ConnectionGene, i)){
             Celement = get(child->ConnectionGene, i);
-            copyElement(get(randbool ? parent1->ConnectionGene : parent2->ConnectionGene, i), &Celement );
-            put(child->ConnectionGene, i, Celement);
+            element Pelement = get(randbool ? parent1->ConnectionGene : parent2->ConnectionGene, i);
+            if(Pelement.connection){
+                copyElement(Pelement, &Celement);
+                put(child->ConnectionGene, i, Celement);
+            }
         }else{
             if(fp){
                 Celement = get(child->ConnectionGene, i);
-                copyElement(get(fp->ConnectionGene, i), &Celement );
-                put(child->ConnectionGene, i, Celement);
+                element Pelement = get(fp->ConnectionGene, i);
+                if(Pelement.connection){
+                    copyElement(Pelement, &Celement);
+                    put(child->ConnectionGene, i, Celement);
+                }
             }else{
                 Celement = get(child->ConnectionGene, i);
-                copyElement(get(randbool ? parent1->ConnectionGene : parent2->ConnectionGene, i), &Celement );
-                if(!Celement.connection->enabled) Celement.connection->enabled = randbool;
-                put(child->ConnectionGene, i, Celement);
+                element Pelement = get(randbool ? parent1->ConnectionGene : parent2->ConnectionGene, i);
+                if(Pelement.connection){
+                    copyElement(Pelement, &Celement );
+                    if(!Celement.connection->enabled) Celement.connection->enabled = randbool;
+                    put(child->ConnectionGene, i, Celement);
+                }
             }
         }
     }
@@ -500,7 +514,7 @@ void printGenome(Genome* newGene){
     for (size_t i = 0; i < newGene->ConnectionGene->size; i++)
     {
         cons.connection = get(newGene->ConnectionGene, i+1).connection;
-        if (!cons.connection) {
+        if (!(cons.connection)) {
             continue;
         }
         switch (cons.connection->enabled)
@@ -531,13 +545,11 @@ Genome* copyGenome(Genome* source){
     newGenome->NodeGene = createMap(source->NodeGene->size);
     for (size_t i = 0; i < source->nodes; i++)
     {
-        node.node = (Node*)malloc(sizeof(Node));
         copyElement(get(source->NodeGene, i+1), &node);
         put(newGenome->NodeGene, i+1, node);
     }
     for (size_t i = 1; i <= source->ConnectionGene->size; i++)
     {
-        connection.connection = (Connection*)malloc(sizeof(Connection));
         copyElement(get(source->ConnectionGene, i), &connection);
         put(newGenome->ConnectionGene, i, connection);
     }
@@ -550,11 +562,6 @@ void destroyGenome(Genome* genome){
     destroyMap(genome->ConnectionGene);
     destroyMap(genome->NodeGene);
     free(genome);
-}
-
-//function to increament the Innovation Number of the Gene
-void incrInnov(){
-    GlobalInnovationNumber++;
 }
 
 //-------------------------------------------TEST CODE---------------------------------------------------
@@ -697,8 +704,8 @@ int main(){
     printGenome(parent1);
     printf("-----------------------------------PARENT 2---------------------------------------------\n");
     printGenome(parent2);
-    //printf("-----------------------------------CHILD---------------------------------------------\n");
-    //printGenome(child);
+    printf("-----------------------------------CHILD---------------------------------------------\n");
+    printGenome(child);
 
     
     float values[3] = {3.14, 5.23, 0.25};
