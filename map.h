@@ -1,7 +1,7 @@
 #ifndef MAP_H
 #define MAP_H
 #include <stddef.h>
-
+#include <stdbool.h>
 
 typedef enum {
     INPUT_NODE,
@@ -42,7 +42,6 @@ typedef struct
     Pair** data;
     size_t size;
 } Map;
-
 
 
 Map* createMap(size_t initialSize);

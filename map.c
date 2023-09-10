@@ -13,6 +13,21 @@ Map* createMap(size_t initialSize){
     return map;
 }
 
+void resizeMap(Map* map, size_t newSize){
+    Pair** newData = (Pair**)calloc(newSize, sizeof(Pair*));
+   for (size_t i = 1; i < map->size; i++) {
+        Pair* entry = map->data[i];
+        if (entry) {
+            size_t newIndex = hash(entry->key, newSize);
+            newData[newIndex] = entry;
+        }
+    }
+
+    free(map->data);
+    map->data = newData;
+    map->size = newSize;
+}
+
 void put(Map* map, size_t key, element value){
     if(key > map->size) resizeMap(map, key + 5);
     size_t index = hash(key, map->size);
@@ -47,24 +62,8 @@ void copyElement(element source, element* target){
     }else if(source.node){
         target->node = (Node*)malloc(sizeof(Node));
         target->node->id = source.node->id;
-        target->node->score = source.node->score;
         target->node->type = source.node->type;
     }
-}
-
-void resizeMap(Map* map, size_t newSize){
-    Pair** newData = (Pair**)calloc(newSize, sizeof(Pair*));
-   for (size_t i = 1; i < map->size; i++) {
-        Pair* entry = map->data[i];
-        if (entry) {
-            size_t newIndex = hash(entry->key, newSize);
-            newData[newIndex] = entry;
-        }
-    }
-
-    free(map->data);
-    map->data = newData;
-    map->size = newSize;
 }
 
 void destroyMap(Map* map){

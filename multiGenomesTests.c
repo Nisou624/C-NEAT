@@ -1,12 +1,141 @@
-#include <stdlib.h>
 #include <stdio.h>
+#include <stdlib.h>
 #include <string.h>
 #include <time.h>
 #include <math.h>
-#include <stdbool.h>
 #include <assert.h>
-#include "genome.h"
-#include "map.h"
+#include <stdbool.h>
+//#include "map.h"
+//#include "genome.h"
+
+
+//////////////////////////////////////////////////////////MAP//////////////////////////////////////////////////////////
+typedef enum {
+    INPUT_NODE,
+    OUTPUT_NODE,
+    HIDDEN_NODE
+} NODE_TYPE;
+
+typedef struct 
+{
+    size_t id;
+    float score;
+    NODE_TYPE type;
+}Node;
+
+typedef struct 
+{
+    size_t inNode;
+    size_t outNode;
+    float weight;
+    size_t enabled;
+    size_t innovation; 
+}Connection;
+
+typedef union 
+{
+    Node* node;
+    Connection* connection;
+}element;
+
+typedef struct 
+{
+    size_t key;
+    element gene ;
+}Pair;
+
+typedef struct
+{
+    Pair** data;
+    size_t size;
+} Map;
+
+static size_t hash(int key, size_t capacity) {
+    return (size_t)key % capacity;
+}
+
+Map* createMap(size_t initialSize){
+    Map* map = (Map*)malloc(sizeof(Map));
+    map->size = initialSize;
+    map->data = (Pair**)calloc(initialSize, sizeof(Pair*));
+    return map;
+}
+
+void resizeMap(Map* map, size_t newSize){
+    Pair** newData = (Pair**)calloc(newSize, sizeof(Pair*));
+   for (size_t i = 1; i < map->size; i++) {
+        Pair* entry = map->data[i];
+        if (entry) {
+            size_t newIndex = hash(entry->key, newSize);
+            newData[newIndex] = entry;
+        }
+    }
+
+    free(map->data);
+    map->data = newData;
+    map->size = newSize;
+}
+
+void put(Map* map, size_t key, element value){
+    if(key > map->size) resizeMap(map, key + 5);
+    size_t index = hash(key, map->size);
+    Pair* element = (Pair*)malloc(sizeof(Pair));
+    element->key = key;
+    element->gene = value;
+    map->data[index] = element;
+}
+
+element get(Map* map, size_t key){
+    size_t index = hash(key, map->size);
+    Pair* element = map->data[index];
+    if(element && element->key == key){
+        return element->gene;
+    }
+}
+
+bool contains(Map* map, size_t key){
+    size_t index = hash(key, map->size);
+    Pair* element = map->data[index];
+    return (element && element->key == key) ? true : false;
+}
+
+void copyElement(element source, element* target){
+    if(source.connection){
+        target->connection = (Connection*)malloc(sizeof(Connection));
+        target->connection->enabled = source.connection->enabled;
+        target->connection->inNode = source.connection->inNode;
+        target->connection->innovation = source.connection->innovation;
+        target->connection->outNode = source.connection->outNode;
+        target->connection->weight = source.connection->weight;
+    }else if(source.node){
+        target->node = (Node*)malloc(sizeof(Node));
+        target->node->id = source.node->id;
+        target->node->type = source.node->type;
+    }
+}
+
+void destroyMap(Map* map){
+    for(size_t i = 0; i< map->size; ++i){
+        if(map->data[i]){
+            free(map->data[i]);
+        }
+    }
+    free(map->data);
+    free(map);
+}
+
+//////////////////////////////////////////////////////////GENOME//////////////////////////////////////////////////////////
+
+typedef struct
+{
+    size_t nodes;
+    size_t input;
+    size_t output;
+    size_t innov;
+    float fitness;
+    Map* NodeGene;
+    Map* ConnectionGene;
+}Genome;
 
 #define WEIGHT_MUTATION 0.8
 #define NODE_MUTATION 0.03
@@ -460,24 +589,51 @@ void printGenome(Genome* newGene){
 
 //function to visualize the Genome
 void viz(Genome* newGene, char* fileName){
+    char color[20];
     char dotFileName[256]; // You may want to adjust the buffer size as needed
     snprintf(dotFileName, sizeof(dotFileName), "%s.dot", fileName);
     
     FILE* dot = fopen(dotFileName, "w+");
     element cons;
+    element nodes;
     if(!dot) return; 
     fprintf(dot, "digraph Genome {\n");
+    for (size_t i = 0; i < newGene->nodes; i++)
+    {
+        nodes = get(newGene->NodeGene, i+1);
+        if(!nodes.node){
+            continue;
+        }
+        switch (nodes.node->type)
+        {
+        case INPUT_NODE:
+            strcpy(color, "gold");
+            break;
+        case OUTPUT_NODE:
+            strcpy(color, "darkviolet");
+            break;
+        case HIDDEN_NODE:
+            strcpy(color, "blue");
+            break;
+        
+        default:
+            strcpy(color, "aqua");
+            break;
+        }
+        fprintf(dot, "\t%zu [color=\"%s\"];\n", nodes.node->id, color);
+    }
+    fprintf(dot, "\n");
+    
     for (size_t i = 0; i < newGene->ConnectionGene->size; i++)
     {
         cons.connection = get(newGene->ConnectionGene, i+1).connection;
         if (!(cons.connection)) {
             continue;
         }
-        fprintf(dot, "\t%zu -> %zu;\n", cons.connection->inNode, cons.connection->outNode);
+        fprintf(dot, "\t%zu -> %zu [color=\"%s\"];\n", cons.connection->inNode, cons.connection->outNode, cons.connection->enabled ? strcpy(color, "green"): strcpy(color, "red"));
     }
     fprintf(dot, "}\n");
     fclose(dot);
-    free(dot);
 }
 
 /*
@@ -509,4 +665,176 @@ void destroyGenome(Genome* genome){
     destroyMap(genome->ConnectionGene);
     destroyMap(genome->NodeGene);
     free(genome);
+}
+
+//////////////////////////////////////////////////////////MAIN//////////////////////////////////////////////////////////
+
+
+int main(){
+    srand(time(NULL));
+
+    Genome* parent1 = (Genome*)malloc(sizeof(Genome));
+    initGenome(parent1, 3, 1);
+    //------------------------------------------------NODE 1
+    Node* nn = (Node*)malloc(sizeof(Node));
+    nn->id = 1;
+    nn->score = 0;
+    nn->type = INPUT_NODE;
+    addNodeGene(parent1, nn);
+    //------------------------------------------------NODE 2
+    nn = (Node*)malloc(sizeof(Node));
+    nn->id = 2;
+    nn->score = 0;
+    nn->type = INPUT_NODE;
+    addNodeGene(parent1, nn);
+    //------------------------------------------------NODE 3
+    nn = (Node*)malloc(sizeof(Node));
+    nn->id = 3;
+    nn->score = 0;
+    nn->type = INPUT_NODE;
+    addNodeGene(parent1, nn);
+    //------------------------------------------------NODE 4
+    nn = (Node*)malloc(sizeof(Node));
+    nn->id = 4;
+    nn->score = 0;
+    nn->type = OUTPUT_NODE;
+    addNodeGene(parent1, nn);
+    //------------------------------------------------NODE 5
+    nn = (Node*)malloc(sizeof(Node));
+    nn->id = 5;
+    nn->score = 0;
+    nn->type = HIDDEN_NODE;
+    addNodeGene(parent1, nn);
+
+    Genome* test = (Genome*)malloc(sizeof(Genome));
+    test = copyGenome(parent1);
+    //------------------------------------------------CONNEXION 1
+    Connection* cnx = (Connection*)malloc(sizeof(Connection));
+    cnx->enabled = true;
+    cnx->inNode = 1;
+    cnx->outNode = 4;
+    cnx->innovation = 1;
+    cnx->weight = (float)rand() /RAND_MAX;
+    addConnectionGene(parent1, cnx);
+    //------------------------------------------------CONNEXION 2
+    cnx = (Connection*)malloc(sizeof(Connection));
+    cnx->enabled = false;
+    cnx->inNode = 2;
+    cnx->outNode = 4;
+    cnx->innovation = 2;
+    cnx->weight = (float)rand() /RAND_MAX;
+    addConnectionGene(parent1, cnx);
+    //------------------------------------------------CONNEXION 3
+    cnx = (Connection*)malloc(sizeof(Connection));
+    cnx->enabled = true;
+    cnx->inNode = 3;
+    cnx->outNode = 4;
+    cnx->innovation = 3;
+    cnx->weight = (float)rand() /RAND_MAX;
+    addConnectionGene(parent1, cnx);
+    //------------------------------------------------CONNEXION 4
+    cnx = (Connection*)malloc(sizeof(Connection));
+    cnx->enabled = true;
+    cnx->inNode = 2;
+    cnx->outNode = 5;
+    cnx->innovation = 4;
+    cnx->weight = (float)rand() /RAND_MAX;
+    addConnectionGene(parent1, cnx);
+    //------------------------------------------------CONNEXION 5
+    cnx = (Connection*)malloc(sizeof(Connection));
+    cnx->enabled = true;
+    cnx->inNode = 5;
+    cnx->outNode = 4;
+    cnx->innovation = 5;
+    cnx->weight = (float)rand() /RAND_MAX;
+    addConnectionGene(parent1, cnx);
+/////////////////////////////////////////////////////////////////
+    Genome* parent2 = (Genome*)malloc(sizeof(Genome));
+    parent1->nodes = 5;
+    parent2 = copyGenome(parent1);
+    //------------------------------------------------CONNEXION 8
+    cnx = (Connection*)malloc(sizeof(Connection));
+    cnx->enabled = true;
+    cnx->inNode = 1;
+    cnx->outNode = 5;
+    cnx->innovation = 8;
+    cnx->weight = (float)rand() /RAND_MAX;
+    addConnectionGene(parent1, cnx);
+///////////////////////////////////////////////////////
+    
+    nn = (Node*)malloc(sizeof(Node));
+    nn->id = 6;
+    nn->type = HIDDEN_NODE;
+    addNodeGene(parent2, nn);
+    parent2->nodes = 6;
+    element altered = get(parent2->ConnectionGene, 5);
+    altered.connection->enabled = false;
+    put(parent2->ConnectionGene, 5, altered);
+    //------------------------------------------------CONNEXION 6
+    cnx = (Connection*)malloc(sizeof(Connection));
+    cnx->enabled = true;
+    cnx->inNode = 5;
+    cnx->outNode = 6;
+    cnx->innovation = 6;
+    cnx->weight = (float)rand() /RAND_MAX;
+    addConnectionGene(parent2, cnx);
+    //------------------------------------------------CONNEXION 7
+    cnx = (Connection*)malloc(sizeof(Connection));
+    cnx->enabled = true;
+    cnx->inNode = 6;
+    cnx->outNode = 4;
+    cnx->innovation = 7;
+    cnx->weight = (float)rand() /RAND_MAX;
+    addConnectionGene(parent2, cnx);
+    //------------------------------------------------CONNEXION 9
+    cnx = (Connection*)malloc(sizeof(Connection));
+    cnx->enabled = true;
+    cnx->inNode = 3;
+    cnx->outNode = 5;
+    cnx->innovation = 9;
+    cnx->weight = (float)rand() /RAND_MAX;
+    addConnectionGene(parent2, cnx);
+    //------------------------------------------------CONNEXION 10
+    cnx = (Connection*)malloc(sizeof(Connection));
+    cnx->enabled = true;
+    cnx->inNode = 1;
+    cnx->outNode = 6;
+    cnx->innovation = 10;
+    cnx->weight = (float)rand() /RAND_MAX;
+    addConnectionGene(parent2, cnx);
+    parent1->fitness = 8.5;
+    parent2->fitness = 7.5;
+    Genome* child = crossover(parent1, parent2);
+    printf("the connections innovation number is %zu\n", GlobalInnovationNumber);
+    printf("-----------------------------------PARENT 1---------------------------------------------\n");
+    printGenome(parent1);
+    printf("-----------------------------------PARENT 2---------------------------------------------\n");
+    printGenome(parent2);
+    printf("-----------------------------------CHILD---------------------------------------------\n");
+    printGenome(child);
+
+    
+    float values[3] = {3.14, 5.23, 0.25};
+    float nada[3] = {0.0, 0.0, 0.0};
+    test->input = 3;
+    test->output = 1;
+    test->nodes = 4;
+    test->innov = 0;
+    feedForward(nada, 3, test);
+    Node* act = get(test->NodeGene, 1).node;
+    printf("test input number %zu score is : %.4f\n", act->id, act->score);
+    act = get(test->NodeGene, 2).node;
+    printf("test input number %zu score is : %.4f\n", act->id, act->score);
+    act = get(test->NodeGene, 3).node;
+    printf("test input number %zu score is : %.4f\n", act->id, act->score);
+    act = get(test->NodeGene, 4).node;
+    printf("test Output number %zu score is : %.4f\n", act->id, act->score);
+
+    viz(parent1, "parent1");
+    viz(parent2, "parent2");
+    viz(child, "child");
+    destroyGenome(parent1);
+    destroyGenome(parent2);
+    destroyGenome(child);
+    return 0;
 }
