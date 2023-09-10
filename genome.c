@@ -8,6 +8,7 @@
 #include "genome.h"
 #include "map.h"
 
+#define THRESHOLD 3.0
 #define WEIGHT_MUTATION 0.8
 #define NODE_MUTATION 0.03
 #define LINK_MUTATION 0.05
@@ -73,7 +74,7 @@ Genome* initRGenome(size_t inNodes, size_t outNodes){
         newCon->enabled = 1;
         newCon->inNode = nNode->id;
         newCon->outNode = hNode->id;
-        newCon->weight = (float)rand() /RAND_MAX;
+        newCon->weight = (float)((rand() /RAND_MAX * 2) - 1);
         newCon->innovation = GlobalInnovationNumber;
         con.connection = newCon;
         put(newGenome->ConnectionGene, newCon->innovation, con);
@@ -99,7 +100,7 @@ Genome* initRGenome(size_t inNodes, size_t outNodes){
         newCon->enabled = 1;
         newCon->inNode = hNode->id;
         newCon->outNode = nNode->id;
-        newCon->weight = (float)rand() /RAND_MAX;
+        newCon->weight = (float)((rand() /RAND_MAX * 2) - 1);
         newCon->innovation = GlobalInnovationNumber;
         con.connection = newCon;
         put(newGenome->ConnectionGene, newCon->innovation, con);
@@ -150,11 +151,11 @@ void addNodeMutation(Genome* genome, size_t r){
 
     //creating the connection from the new Node to the outNode
     Connection* newToOut = (Connection*)malloc(sizeof(Connection));
-    inToNew->enabled = 1;
-    inToNew->inNode = newNode->id;
-    inToNew->outNode = c->outNode;
-    inToNew->innovation = GlobalInnovationNumber + 1;
-    inToNew->weight = c->weight;
+    newToOut->enabled = 1;
+    newToOut->inNode = newNode->id;
+    newToOut->outNode = c->outNode;
+    newToOut->innovation = GlobalInnovationNumber + 1;
+    newToOut->weight = c->weight;
     addConnectionGene(genome, newToOut);
 
 };
@@ -172,6 +173,8 @@ void addConnectionMutation(Genome* genome, size_t r1, size_t r2){
     */
     Node* n1 = get(genome->NodeGene, r1).node;
     Node* n2 = get(genome->NodeGene, r2).node;
+    //see a better solution for this
+    if(!n1 || !n2) return;
     if(r1 != r2 && n1->type != n2->type){
         for(size_t i = 1; i <= GlobalInnovationNumber; i++){
             Connection* con = get(genome->ConnectionGene, i).connection;
@@ -194,7 +197,7 @@ void addConnectionMutation(Genome* genome, size_t r1, size_t r2){
                 newCon.connection->inNode = n2->id;
                 newCon.connection->outNode = n1->id; 
             }
-            newCon.connection->weight = (float)rand() /RAND_MAX;
+            newCon.connection->weight = (float)((rand() /RAND_MAX * 2) - 1);
             newCon.connection->innovation = GlobalInnovationNumber + 1;
             incrConsInnov();
             put(genome->ConnectionGene, newCon.connection->innovation, newCon);
@@ -206,15 +209,24 @@ void addConnectionMutation(Genome* genome, size_t r1, size_t r2){
 //function to assing a new weight to a connection (used for mutations)
 void mutateWeight(Genome* genome, size_t conId){
     srand(time(NULL));
+    float newWeight = (float)((rand() /RAND_MAX * 2) - 1);
     Connection* con = get(genome->ConnectionGene, conId).connection;
-    if(con) con->weight = rand() / RAND_MAX;
+    if(!con) return;
+    printf("previous weight %.2f \n", con->weight);
+    con->weight = newWeight;
+    printf("new weight %.2f\n", newWeight);
 }
 
 //function to shift the weight of a connection (used for mutations)
 void shiftWeight(Genome* genome, size_t conId){
     srand(time(NULL));
+    float shift = (float) (rand() / RAND_MAX * 2 )- 1;
     Connection* con = get(genome->ConnectionGene, conId).connection;
-    if(con) con->weight += (rand() / RAND_MAX * 2 )- 1;
+    if(!con) return;
+    printf("previous weight %.2f \n", con->weight);
+    con->weight += shift;
+    printf("shifted by: %.2f\n", shift);
+    printf("new weight %.2f \n", con->weight);
 }
 
 //function for the weight Mutation from the paper
@@ -231,9 +243,18 @@ void weightMutation(Genome* genome){
 //function that wraps all the mutations 
 void Mutate(Genome* genome){
     srand(time(NULL));
-    if(rand() <= WEIGHT_MUTATION) weightMutation(genome);
-    if(rand() <= NODE_MUTATION) addNodeMutation(genome, rand() % GlobalInnovationNumber);
-    if(rand() <= LINK_MUTATION) addConnectionMutation(genome, rand() % GlobalNodeInnovationNumber, rand() % GlobalNodeInnovationNumber);
+    if(((float)rand() / RAND_MAX) <= WEIGHT_MUTATION){
+        printf("weight mutation \n");
+        weightMutation(genome);
+    }
+    if(((float)rand() / RAND_MAX) <= NODE_MUTATION){
+        printf("node mutation \n");
+        addNodeMutation(genome, (rand() % GlobalNodeInnovationNumber) + 1);
+    }
+    if(((float)rand() / RAND_MAX) <= LINK_MUTATION){
+        printf("connection mutation \n");
+        addConnectionMutation(genome, (rand() % GlobalInnovationNumber) + 1, (rand() % GlobalInnovationNumber) + 1);
+    }
 }
 
 /*
@@ -356,9 +377,8 @@ Genome* crossover(Genome* parent1, Genome* parent2){
     return child;   
 }
 
-//function to speciate a genome
-bool speciate(Genome* mascote, Genome* candidate, float c1, float c2, float c3){
-    bool result;
+//function to calculate the distance between two genome (used for speciation)
+bool distance(Genome* mascote, Genome* candidate, float c1, float c2, float c3){
     float formula;
     size_t nodesNumber = mascote->nodes >= candidate->nodes ? mascote->nodes : candidate->nodes;
     size_t connectionsNumber = mascote->ConnectionGene->size >= candidate->ConnectionGene->size ? mascote->ConnectionGene->size : candidate->ConnectionGene->size;
@@ -394,7 +414,7 @@ bool speciate(Genome* mascote, Genome* candidate, float c1, float c2, float c3){
     averageWeights /= matchingGenes;
     formula = (c1 * excessGenes) + (c2 * disjointGenes) + (c3 * averageWeights);
 
-    return result = formula >= 0.5 ? true : false;
+    return formula <= THRESHOLD ? true : false;
     
 }
 
@@ -460,24 +480,53 @@ void printGenome(Genome* newGene){
 
 //function to visualize the Genome
 void viz(Genome* newGene, char* fileName){
+    char color[20];
+    char weight[20];
     char dotFileName[256]; // You may want to adjust the buffer size as needed
     snprintf(dotFileName, sizeof(dotFileName), "%s.dot", fileName);
     
     FILE* dot = fopen(dotFileName, "w+");
     element cons;
+    element nodes;
     if(!dot) return; 
     fprintf(dot, "digraph Genome {\n");
+    for (size_t i = 0; i < newGene->nodes; i++)
+    {
+        nodes = get(newGene->NodeGene, i+1);
+        if(!nodes.node){
+            continue;
+        }
+        switch (nodes.node->type)
+        {
+        case INPUT_NODE:
+            strcpy(color, "gold");
+            break;
+        case OUTPUT_NODE:
+            strcpy(color, "darkviolet");
+            break;
+        case HIDDEN_NODE:
+            strcpy(color, "blue");
+            break;
+        
+        default:
+            strcpy(color, "aqua");
+            break;
+        }
+        fprintf(dot, "\t%zu [color=\"%s\"];\n", nodes.node->id, color);
+    }
+    fprintf(dot, "\n");
+    
     for (size_t i = 0; i < newGene->ConnectionGene->size; i++)
     {
         cons.connection = get(newGene->ConnectionGene, i+1).connection;
-        if (!(cons.connection)) {
+        if (!(cons.connection) || !cons.connection->enabled) {
             continue;
         }
-        fprintf(dot, "\t%zu -> %zu;\n", cons.connection->inNode, cons.connection->outNode);
+        sprintf(weight, "%.2f", cons.connection->weight);
+        fprintf(dot, "\t%zu -> %zu [color=\"%s\", label=\"%s\"];\n", cons.connection->inNode, cons.connection->outNode, cons.connection->weight >= 0.5 ? strcpy(color, "green"): strcpy(color, "red"), weight);
     }
     fprintf(dot, "}\n");
     fclose(dot);
-    free(dot);
 }
 
 /*
@@ -510,3 +559,4 @@ void destroyGenome(Genome* genome){
     destroyMap(genome->NodeGene);
     free(genome);
 }
+

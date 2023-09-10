@@ -137,6 +137,7 @@ typedef struct
     Map* ConnectionGene;
 }Genome;
 
+#define THRESHOLD 3.0
 #define WEIGHT_MUTATION 0.8
 #define NODE_MUTATION 0.03
 #define LINK_MUTATION 0.05
@@ -202,7 +203,7 @@ Genome* initRGenome(size_t inNodes, size_t outNodes){
         newCon->enabled = 1;
         newCon->inNode = nNode->id;
         newCon->outNode = hNode->id;
-        newCon->weight = (float)rand() /RAND_MAX;
+        newCon->weight = (float)((rand() /RAND_MAX * 2) - 1);
         newCon->innovation = GlobalInnovationNumber;
         con.connection = newCon;
         put(newGenome->ConnectionGene, newCon->innovation, con);
@@ -228,7 +229,7 @@ Genome* initRGenome(size_t inNodes, size_t outNodes){
         newCon->enabled = 1;
         newCon->inNode = hNode->id;
         newCon->outNode = nNode->id;
-        newCon->weight = (float)rand() /RAND_MAX;
+        newCon->weight = (float)((rand() /RAND_MAX * 2) - 1);
         newCon->innovation = GlobalInnovationNumber;
         con.connection = newCon;
         put(newGenome->ConnectionGene, newCon->innovation, con);
@@ -290,7 +291,7 @@ void addNodeMutation(Genome* genome, size_t r){
 
 //function for the "Add Connection Mutation" from the paper
 void addConnectionMutation(Genome* genome, size_t r1, size_t r2){
-    srand(rand());
+    srand(time(NULL));
     
     //assuming that the connection exists
     size_t conExists = 1;
@@ -325,7 +326,7 @@ void addConnectionMutation(Genome* genome, size_t r1, size_t r2){
                 newCon.connection->inNode = n2->id;
                 newCon.connection->outNode = n1->id; 
             }
-            newCon.connection->weight = (float)rand() /RAND_MAX;
+            newCon.connection->weight = (float)((rand() /RAND_MAX * 2) - 1);
             newCon.connection->innovation = GlobalInnovationNumber + 1;
             incrConsInnov();
             put(genome->ConnectionGene, newCon.connection->innovation, newCon);
@@ -336,8 +337,8 @@ void addConnectionMutation(Genome* genome, size_t r1, size_t r2){
 
 //function to assing a new weight to a connection (used for mutations)
 void mutateWeight(Genome* genome, size_t conId){
-    srand(rand());
-    float newWeight = (float) rand() / RAND_MAX;
+    srand(time(NULL));
+    float newWeight = (float)((rand() /RAND_MAX * 2) - 1);
     Connection* con = get(genome->ConnectionGene, conId).connection;
     if(!con) return;
     printf("previous weight %.2f \n", con->weight);
@@ -347,7 +348,7 @@ void mutateWeight(Genome* genome, size_t conId){
 
 //function to shift the weight of a connection (used for mutations)
 void shiftWeight(Genome* genome, size_t conId){
-    srand(rand());
+    srand(time(NULL));
     float shift = (float) (rand() / RAND_MAX * 2 )- 1;
     Connection* con = get(genome->ConnectionGene, conId).connection;
     if(!con) return;
@@ -359,7 +360,7 @@ void shiftWeight(Genome* genome, size_t conId){
 
 //function for the weight Mutation from the paper
 void weightMutation(Genome* genome){
-    srand(rand());
+    srand(time(NULL));
     size_t conId = rand() % GlobalInnovationNumber;
     if((float)rand() / RAND_MAX <= 0.1){
         mutateWeight(genome, conId);
@@ -370,16 +371,16 @@ void weightMutation(Genome* genome){
 
 //function that wraps all the mutations 
 void Mutate(Genome* genome){
-    srand(rand());
-    if(rand() / RAND_MAX <= WEIGHT_MUTATION){
+    srand(time(NULL));
+    if(((float)rand() / RAND_MAX) <= WEIGHT_MUTATION){
         printf("weight mutation \n");
         weightMutation(genome);
     }
-    if(rand() / RAND_MAX <= NODE_MUTATION){
+    if(((float)rand() / RAND_MAX) <= NODE_MUTATION){
         printf("node mutation \n");
         addNodeMutation(genome, (rand() % GlobalNodeInnovationNumber) + 1);
     }
-    if(rand() / RAND_MAX <= LINK_MUTATION){
+    if(((float)rand() / RAND_MAX) <= LINK_MUTATION){
         printf("connection mutation \n");
         addConnectionMutation(genome, (rand() % GlobalInnovationNumber) + 1, (rand() % GlobalInnovationNumber) + 1);
     }
@@ -505,9 +506,8 @@ Genome* crossover(Genome* parent1, Genome* parent2){
     return child;   
 }
 
-//function to speciate a genome
-bool speciate(Genome* mascote, Genome* candidate, float c1, float c2, float c3){
-    bool result;
+//function to calculate the distance between two genome (used for speciation)
+bool distance(Genome* mascote, Genome* candidate, float c1, float c2, float c3){
     float formula;
     size_t nodesNumber = mascote->nodes >= candidate->nodes ? mascote->nodes : candidate->nodes;
     size_t connectionsNumber = mascote->ConnectionGene->size >= candidate->ConnectionGene->size ? mascote->ConnectionGene->size : candidate->ConnectionGene->size;
@@ -543,7 +543,7 @@ bool speciate(Genome* mascote, Genome* candidate, float c1, float c2, float c3){
     averageWeights /= matchingGenes;
     formula = (c1 * excessGenes) + (c2 * disjointGenes) + (c3 * averageWeights);
 
-    return result = formula >= 0.5 ? true : false;
+    return formula <= THRESHOLD ? true : false;
     
 }
 
@@ -735,7 +735,7 @@ int main(){
     cnx->inNode = 1;
     cnx->outNode = 4;
     cnx->innovation = 1;
-    cnx->weight = (float)rand() /RAND_MAX;
+    cnx->weight = (float)((rand() /RAND_MAX * 2) - 1);
     addConnectionGene(parent1, cnx);
     //------------------------------------------------CONNEXION 2
     cnx = (Connection*)malloc(sizeof(Connection));
@@ -743,7 +743,7 @@ int main(){
     cnx->inNode = 2;
     cnx->outNode = 4;
     cnx->innovation = 2;
-    cnx->weight = (float)rand() /RAND_MAX;
+    cnx->weight = (float)((rand() /RAND_MAX * 2) - 1);
     addConnectionGene(parent1, cnx);
     //------------------------------------------------CONNEXION 3
     cnx = (Connection*)malloc(sizeof(Connection));
@@ -751,7 +751,7 @@ int main(){
     cnx->inNode = 3;
     cnx->outNode = 4;
     cnx->innovation = 3;
-    cnx->weight = (float)rand() /RAND_MAX;
+    cnx->weight = (float)((rand() /RAND_MAX * 2) - 1);
     addConnectionGene(parent1, cnx);
     //------------------------------------------------CONNEXION 4
     cnx = (Connection*)malloc(sizeof(Connection));
@@ -759,7 +759,7 @@ int main(){
     cnx->inNode = 2;
     cnx->outNode = 5;
     cnx->innovation = 4;
-    cnx->weight = (float)rand() /RAND_MAX;
+    cnx->weight = (float)((rand() /RAND_MAX * 2) - 1);
     addConnectionGene(parent1, cnx);
     //------------------------------------------------CONNEXION 5
     cnx = (Connection*)malloc(sizeof(Connection));
@@ -767,7 +767,7 @@ int main(){
     cnx->inNode = 5;
     cnx->outNode = 4;
     cnx->innovation = 5;
-    cnx->weight = (float)rand() /RAND_MAX;
+    cnx->weight = (float)((rand() /RAND_MAX * 2) - 1);
     addConnectionGene(parent1, cnx);
 /////////////////////////////////////////////////////////////////
     //printGenome(parent1);

@@ -34,7 +34,7 @@ void evaluate(Genome* genome, size_t fitness);
 float sigmoidf(float s);
 void feedForward(float* inputs, size_t length, Genome* genome);
 Genome* crossover(Genome* parent1, Genome* parent2);
-bool speciate(Genome* mascote, Genome* candidate, float c1, float c2, float c3);
+bool distance(Genome* mascote, Genome* candidate, float c1, float c2, float c3);
 void printGenome(Genome* newGene);
 void viz(Genome* newGene, char* fileName);
 Genome* copyGenome(Genome* source);
