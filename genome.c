@@ -74,7 +74,7 @@ Genome* initRGenome(size_t inNodes, size_t outNodes){
         newCon->enabled = 1;
         newCon->inNode = nNode->id;
         newCon->outNode = hNode->id;
-        newCon->weight = (float)((rand() /RAND_MAX * 2) - 1);
+        newCon->weight = ((float)rand() / RAND_MAX) * 2 - 1;
         newCon->innovation = GlobalInnovationNumber;
         con.connection = newCon;
         put(newGenome->ConnectionGene, newCon->innovation, con);
@@ -100,7 +100,7 @@ Genome* initRGenome(size_t inNodes, size_t outNodes){
         newCon->enabled = 1;
         newCon->inNode = hNode->id;
         newCon->outNode = nNode->id;
-        newCon->weight = (float)((rand() /RAND_MAX * 2) - 1);
+        newCon->weight = ((float)rand() / RAND_MAX) * 2 - 1;
         newCon->innovation = GlobalInnovationNumber;
         con.connection = newCon;
         put(newGenome->ConnectionGene, newCon->innovation, con);
@@ -197,7 +197,7 @@ void addConnectionMutation(Genome* genome, size_t r1, size_t r2){
                 newCon.connection->inNode = n2->id;
                 newCon.connection->outNode = n1->id; 
             }
-            newCon.connection->weight = (float)((rand() /RAND_MAX * 2) - 1);
+            newCon.connection->weight = ((float)rand() / RAND_MAX) * 2 - 1;
             newCon.connection->innovation = GlobalInnovationNumber + 1;
             incrConsInnov();
             put(genome->ConnectionGene, newCon.connection->innovation, newCon);
@@ -209,7 +209,7 @@ void addConnectionMutation(Genome* genome, size_t r1, size_t r2){
 //function to assing a new weight to a connection (used for mutations)
 void mutateWeight(Genome* genome, size_t conId){
     srand(time(NULL));
-    float newWeight = (float)((rand() /RAND_MAX * 2) - 1);
+    float newWeight = ((float)rand() / RAND_MAX);
     Connection* con = get(genome->ConnectionGene, conId).connection;
     if(!con) return;
     printf("previous weight %.2f \n", con->weight);
@@ -220,7 +220,7 @@ void mutateWeight(Genome* genome, size_t conId){
 //function to shift the weight of a connection (used for mutations)
 void shiftWeight(Genome* genome, size_t conId){
     srand(time(NULL));
-    float shift = (float) (rand() / RAND_MAX * 2 )- 1;
+    float shift = ((float)rand() / RAND_MAX) * 2 - 1;
     Connection* con = get(genome->ConnectionGene, conId).connection;
     if(!con) return;
     printf("previous weight %.2f \n", con->weight);
@@ -233,7 +233,7 @@ void shiftWeight(Genome* genome, size_t conId){
 void weightMutation(Genome* genome){
     srand(time(NULL));
     size_t conId = rand() % GlobalInnovationNumber;
-    if((float)rand() / RAND_MAX <= 0.1){
+    if(((float)rand() / RAND_MAX) <= 0.1){
         mutateWeight(genome, conId);
     }else{
         shiftWeight(genome, conId);

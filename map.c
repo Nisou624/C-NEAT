@@ -75,3 +75,27 @@ void destroyMap(Map* map){
     free(map->data);
     free(map);
 }
+
+
+arrayList* createList(size_t initialSize){
+    arrayList* list = (arrayList*)malloc(sizeof(arrayList));
+    list->capacity = initialSize;
+    list->size = 0;
+    list->data = (Genome**)calloc(initialSize, sizeof(Genome*));
+    if (list->data == NULL) {
+        perror("Failed to allocate memory for ArrayList data");
+        exit(EXIT_FAILURE);
+    }
+    return list;
+}
+
+void add(arrayList* list, Genome* element){
+    if(list->size >= list->capacity) resizeList(list);
+    list->data[list->size++] = element;
+}
+
+Genome* getArray(arrayList* list, size_t index){
+    return index < list->size ? list->data[index] : NULL;
+}
+
+

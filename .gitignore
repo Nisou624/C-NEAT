@@ -1,4 +1,6 @@
 *.txt
 .vscode
 .exe
+.dot
+.jpg
 exec/

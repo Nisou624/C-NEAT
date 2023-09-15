@@ -2,6 +2,7 @@
 #define MAP_H
 #include <stddef.h>
 #include <stdbool.h>
+#include "genome.h"
 
 typedef enum {
     INPUT_NODE,
@@ -52,6 +53,17 @@ void copyElement(element source, element* target);
 void resizeMap(Map* map, size_t newSize);
 void destroyMap(Map* map);
 
+
+
+typedef struct {
+    Genome** data;
+    size_t size;
+    size_t capacity;
+} arrayList;
+
+arrayList* createList(size_t initialSize);
+void add(arrayList* list, Genome* element);
+void add(arrayList* list, Genome* element);
 
 
 #endif
