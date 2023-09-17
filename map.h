@@ -59,11 +59,13 @@ typedef struct {
     Genome** data;
     size_t size;
     size_t capacity;
+    float score;
 } arrayList;
 
 arrayList* createList(size_t initialSize);
 void add(arrayList* list, Genome* element);
-void add(arrayList* list, Genome* element);
+Genome* getArray(arrayList* list, size_t index);
+
 
 
 #endif

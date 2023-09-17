@@ -240,7 +240,10 @@ void weightMutation(Genome* genome){
     }
 }
 
-//function that wraps all the mutations 
+/*
+    function that wraps all the mutations 
+    @param genome the Genome we want to mutate
+*/
 void Mutate(Genome* genome){
     srand(time(NULL));
     if(((float)rand() / RAND_MAX) <= WEIGHT_MUTATION){
@@ -260,12 +263,17 @@ void Mutate(Genome* genome){
 /*
     function that evaluates the performance of the genome and gives it a fitness (score)
         for now we assign a determined fitness for testing
+    @param genome the Genome that we want to assign a fitness
+    @param fitness the fitness that we want to assign to the Genome
 */
 void evaluate(Genome* genome, size_t fitness){
     genome->fitness = fitness;
 }
 
-//activation function (sigmoid)
+/*
+    activation function (sigmoid)
+    @param s the value of the node
+*/
 float sigmoidf(float s){
     return 1.0f / (1 + expf(- s));
 }
@@ -274,7 +282,10 @@ float sigmoidf(float s){
     should have a map of Node_id weight pair or just weight (decide that later)
         feeding the weight to the input nodes of the genome
         looping through the connectionGene and calculating the score of each node
-        returning the final score of the output node(s) 
+        returning the final score of the output node(s)
+    @param inputs an array of the value of the input nodes
+    @param length the number of inputs nodes (also the length of the inputs)
+    @param genome the working Genome
 */
 void feedForward(float* inputs, size_t length, Genome* genome){
 
@@ -319,7 +330,12 @@ void feedForward(float* inputs, size_t length, Genome* genome){
     
 }
 
-//mating two parent genomes
+/*
+    mating two parent genomes
+    @param parent1 the first parent (fitter parent)
+    @param parent2 the second parent (less fitter)
+    @returns a child Genome
+*/
 Genome* crossover(Genome* parent1, Genome* parent2){
     bool randbool = rand() & 1;
     Genome* child = (Genome*)malloc(sizeof(Genome));
@@ -558,5 +574,26 @@ void destroyGenome(Genome* genome){
     destroyMap(genome->ConnectionGene);
     destroyMap(genome->NodeGene);
     free(genome);
+}
+
+
+void shareScore(arrayList* specie){
+    float score = 0.0f;
+    for (size_t i = 0; i < specie->size; i++) {
+        Genome* genome = getArray(specie, i);
+        if (genome != NULL) {
+            score += genome->fitness;
+        }
+    }
+    specie->score = score;   
+}
+
+void annihilate(arrayList* specie){
+    size_t index = round(0.15 * specie->size);
+    for (size_t i = index - 1 ; i < specie->size; i++)
+    {
+        specie->data[i] = NULL;
+    }
+    
 }
 
