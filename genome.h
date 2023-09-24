@@ -18,6 +18,15 @@ typedef struct
 }Genome;
 
 
+typedef struct
+{
+    Genome* population[100];
+    size_t conInnovation;
+    size_t nodeInnovation;
+} population;
+
+
+
 void incrConsInnov();
 void incrNodesInnov();
 void initGenome(Genome* newGenome, size_t inNodes, size_t outNodes);

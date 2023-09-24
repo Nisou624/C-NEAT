@@ -81,7 +81,7 @@ arrayList* createList(size_t initialSize){
     arrayList* list = (arrayList*)malloc(sizeof(arrayList));
     list->capacity = initialSize;
     list->size = 0;
-    list->data = (Genome**)calloc(initialSize, sizeof(Genome*));
+    list->data = (int**)calloc(initialSize, sizeof(int*));
     if (list->data == NULL) {
         perror("Failed to allocate memory for ArrayList data");
         exit(EXIT_FAILURE);
@@ -89,13 +89,13 @@ arrayList* createList(size_t initialSize){
     return list;
 }
 
-void add(arrayList* list, Genome* element){
+void add(arrayList* list, int* element){
     if(list->size >= list->capacity) resizeList(list);
     list->data[list->size++] = element;
 }
 
-Genome* getArray(arrayList* list, size_t index){
-    return index < list->size ? list->data[index] : NULL;
+int getArray(arrayList* list, size_t index){
+    if(index < list->size) return *(list->data[index]) ;
 }
 
 

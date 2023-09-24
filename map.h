@@ -56,15 +56,15 @@ void destroyMap(Map* map);
 
 
 typedef struct {
-    Genome** data;
+    int** data;
     size_t size;
     size_t capacity;
     float score;
 } arrayList;
 
 arrayList* createList(size_t initialSize);
-void add(arrayList* list, Genome* element);
-Genome* getArray(arrayList* list, size_t index);
+void add(arrayList* list, int* element);
+int getArray(arrayList* list, size_t index);
 
 
 

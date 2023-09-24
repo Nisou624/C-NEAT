@@ -597,3 +597,14 @@ void annihilate(arrayList* specie){
     
 }
 
+population* initPopulation(size_t inNodes, size_t outNodes){
+    population* neat = (population*)malloc(sizeof(population));
+    neat->conInnovation = 0;
+    neat->nodeInnovation = 0;
+    for (size_t i = 0; i < 100; i++)
+    {
+        neat->population[i] = initRGenome(inNodes, outNodes);
+    }
+    return neat;
+}
+

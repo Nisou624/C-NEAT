@@ -165,10 +165,13 @@ void initGenome(Genome* newGenome, size_t inNodes, size_t outNodes){
     newGenome->ConnectionGene = connectionGene;
 }
 
-//function for initialising a Genome with random parameters
+/*
+    @brief function for initialising a Genome with random parameters
+    @param inNodes the number of input nodes
+    @param outNodes the number of output nodes
+    @return a Genome with random connection and 1 or 0 hidden node 
+*/
 Genome* initRGenome(size_t inNodes, size_t outNodes){
-
-    srand(time(NULL));
 
     //Initializing the genome with default parameters
     Genome* newGenome = (Genome*)malloc(sizeof(Genome));
