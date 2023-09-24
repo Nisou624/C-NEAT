@@ -15,7 +15,7 @@ Map* createMap(size_t initialSize){
 
 void resizeMap(Map* map, size_t newSize){
     Pair** newData = (Pair**)calloc(newSize, sizeof(Pair*));
-   for (size_t i = 1; i < map->size; i++) {
+    for (size_t i = 1; i < map->size; i++) {
         Pair* entry = map->data[i];
         if (entry) {
             size_t newIndex = hash(entry->key, newSize);
@@ -90,7 +90,7 @@ arrayList* createList(size_t initialSize){
 }
 
 void add(arrayList* list, int* element){
-    if(list->size >= list->capacity) resizeList(list);
+    if(list->size + 1 >= list->capacity) resizeList(list, list->capacity + 5);
     list->data[list->size++] = element;
 }
 
@@ -98,4 +98,15 @@ int getArray(arrayList* list, size_t index){
     if(index < list->size) return *(list->data[index]) ;
 }
 
+void resizeList(arrayList *list, size_t newSize){
+    int** newData = (int**)calloc(newSize, sizeof(int*));
+    for (size_t i = 1; i < list->capacity; i++) {
+        int* entry = list->data[i];
+        newData[i] = entry;
+    }
+
+    free(list->data);
+    list->data = newData;
+    list->capacity = newSize;
+}
 
