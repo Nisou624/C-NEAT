@@ -294,7 +294,6 @@ void addNodeMutation(Genome* genome, size_t r){
 
 //function for the "Add Connection Mutation" from the paper
 void addConnectionMutation(Genome* genome, size_t r1, size_t r2){
-    srand(time(NULL));
     
     //assuming that the connection exists
     size_t conExists = 1;
@@ -340,7 +339,6 @@ void addConnectionMutation(Genome* genome, size_t r1, size_t r2){
 
 //function to assing a new weight to a connection (used for mutations)
 void mutateWeight(Genome* genome, size_t conId){
-    srand(time(NULL));
     float newWeight = ((float)rand() / RAND_MAX);
     Connection* con = get(genome->ConnectionGene, conId).connection;
     if(!con) return;
@@ -349,9 +347,12 @@ void mutateWeight(Genome* genome, size_t conId){
     printf("new weight %.2f\n", newWeight);
 }
 
-//function to shift the weight of a connection (used for mutations)
+/*
+    @brief function to shift the weight of a connection (used for mutations)
+    @param genome the genome we want apply the shift weight mutation
+    @param conId the connection ID
+*/
 void shiftWeight(Genome* genome, size_t conId){
-    srand(time(NULL));
     float shift = ((float)rand() / RAND_MAX) * 2 - 1;
     Connection* con = get(genome->ConnectionGene, conId).connection;
     if(!con) return;
@@ -361,9 +362,11 @@ void shiftWeight(Genome* genome, size_t conId){
     printf("new weight %.2f \n", con->weight);
 }
 
-//function for the weight Mutation from the paper
+/*
+    @brief function for the weight Mutation from the paper
+    @param genome the genome we want to weight mutate
+*/
 void weightMutation(Genome* genome){
-    srand(time(NULL));
     size_t conId = rand() % GlobalInnovationNumber;
     if(((float)rand() / RAND_MAX) <= 0.1){
         mutateWeight(genome, conId);
@@ -372,9 +375,11 @@ void weightMutation(Genome* genome){
     }
 }
 
-//function that wraps all the mutations 
+/*
+    @brief function that wraps all the mutations 
+    @param genome the genome we want to mutate
+*/
 void Mutate(Genome* genome){
-    srand(time(NULL));
     if(((float)rand() / RAND_MAX) <= WEIGHT_MUTATION){
         printf("weight mutation \n");
         weightMutation(genome);
@@ -390,23 +395,31 @@ void Mutate(Genome* genome){
 }
 
 /*
-    function that evaluates the performance of the genome and gives it a fitness (score)
+    @brief function that evaluates the performance of the genome and gives it a fitness (score)
         for now we assign a determined fitness for testing
+    @param genome the genome we want to evaluate
+    @param fitness the genome fitness
 */
 void evaluate(Genome* genome, size_t fitness){
     genome->fitness = fitness;
 }
 
-//activation function (sigmoid)
+/*
+    @brief activation function (sigmoid)
+    @param s a float value
+*/
 float sigmoidf(float s){
     return 1.0f / (1 + expf(- s));
 }
 
 /*
-    should have a map of Node_id weight pair or just weight (decide that later)
+    @brief should have a map of Node_id weight pair or just weight (decide that later)
         feeding the weight to the input nodes of the genome
         looping through the connectionGene and calculating the score of each node
         returning the final score of the output node(s) 
+    @param inputs an array of the input values
+    @param length the size of the input array
+    @param genome The genome we want to apply the feedfoward to
 */
 void feedForward(float* inputs, size_t length, Genome* genome){
 
@@ -451,7 +464,11 @@ void feedForward(float* inputs, size_t length, Genome* genome){
     
 }
 
-//mating two parent genomes
+/*
+    @brief mating two parent genomes
+    @param parent1 the first parent (most fitter)
+    @param parent2 the second parent (less fitter)
+*/
 Genome* crossover(Genome* parent1, Genome* parent2){
     bool randbool = rand() & 1;
     Genome* child = (Genome*)malloc(sizeof(Genome));
@@ -509,7 +526,14 @@ Genome* crossover(Genome* parent1, Genome* parent2){
     return child;   
 }
 
-//function to calculate the distance between two genome (used for speciation)
+/*
+    @brief function to calculate the distance between two genome (used for speciation)
+    @param mascote the reference Genome (usually the first in the specie)
+    @param candidate the Genome we want to speciate
+    @param c1 the first const
+    @param c2 the second const
+    @param c3 the third const
+*/
 bool distance(Genome* mascote, Genome* candidate, float c1, float c2, float c3){
     float formula;
     size_t nodesNumber = mascote->nodes >= candidate->nodes ? mascote->nodes : candidate->nodes;
@@ -550,7 +574,10 @@ bool distance(Genome* mascote, Genome* candidate, float c1, float c2, float c3){
     
 }
 
-//function to print the nodes and connection Genes of a genome (for test purposes and future implementation of visualization)
+/*
+    @brief function to print the nodes and connection Genes of a genome (for test purposes and future implementation of visualization)
+    @param newGene the genome you want to print
+*/
 void printGenome(Genome* newGene){
     element nodes;
     char nodeType[20];
@@ -610,7 +637,11 @@ void printGenome(Genome* newGene){
     printf("}\n");
 }
 
-//function to visualize the Genome
+/*
+    @brief function to visualize the Genome
+    @param newGene the genome you want to visualise
+    @param fileName a string for the output file Name
+*/
 void viz(Genome* newGene, char* fileName){
     char color[20];
     char weight[20];
@@ -662,8 +693,9 @@ void viz(Genome* newGene, char* fileName){
 }
 
 /*
-    Utility function
+    @brief Utility function :
         a function that create a copy of a genome
+    @param source the genome you want to create a copy of
 */
 Genome* copyGenome(Genome* source){
     element node;

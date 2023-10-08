@@ -608,3 +608,19 @@ population* initPopulation(size_t inNodes, size_t outNodes){
     return neat;
 }
 
+
+void DrawGenome(Genome* genome){
+    size_t inXPOS = 100;
+    size_t outXPOS = 600;
+    size_t yPOS = 100;
+    for (size_t i = 0; i < genome->input; i++)
+    {
+        DrawCircleLines(inXPOS, yPOS + (i * 24), 24, GREEN);
+    }
+    for (size_t i = 0; i < genome->output; i++)
+    {
+        DrawCircleLines(outXPOS, yPOS + (i * 24), 24, GREEN);
+    }
+    
+}
+
