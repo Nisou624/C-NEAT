@@ -611,15 +611,23 @@ population* initPopulation(size_t inNodes, size_t outNodes){
 
 void DrawGenome(Genome* genome){
     size_t inXPOS = 100;
-    size_t outXPOS = 600;
+    size_t outXPOS = 500;
+    size_t hiddenXPOS = GetScreenWidth();
     size_t yPOS = 100;
+    size_t hidden = 0;
     for (size_t i = 0; i < genome->input; i++)
     {
-        DrawCircleLines(inXPOS, yPOS + (i * 24), 24, GREEN);
+        DrawCircleLines(inXPOS, yPOS + (i * 60), 24, GREEN);
     }
     for (size_t i = 0; i < genome->output; i++)
     {
         DrawCircleLines(outXPOS, yPOS + (i * 24), 24, GREEN);
+    }
+    for (size_t i = genome->input + genome->output + 1; i <= genome->nodes; i++)
+    {
+        if(hidden % genome->input) yPOS
+        DrawCircleLines(hiddenXPOS, yPOS + (i * 24), 24, GREEN);
+        hidden++;
     }
     
 }
