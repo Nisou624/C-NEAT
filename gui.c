@@ -16,6 +16,8 @@ typedef struct
 {
     size_t id;
     float score;
+    size_t x;
+    size_t y;
     NODE_TYPE type;
 }Node;
 
@@ -783,6 +785,83 @@ void DrawGenome(Genome* genome){
         hiddenNodes--;
     }
     
+
+    
+    
+}
+
+
+void raylibGenome(Genome* genome){
+    Node* node;
+    char nodeID[256] = "";
+    for (size_t i = 1; i <= genome->nodes; i++)
+    {
+
+        node = get(genome->NodeGene, i).node;
+        if (!node) continue; 
+        DrawCircleLines(node->x, node->y, 24, node->type == INPUT_NODE ? GREEN : node->type == OUTPUT_NODE ? RED : BLUE);
+        snprintf(nodeID, sizeof nodeID, "%zu", node->id);
+        DrawText(nodeID,  node->x - 3, node->y - 6 , 14,  node->type == INPUT_NODE ? GREEN : node->type == OUTPUT_NODE ? RED : BLUE);
+        
+    }
+
+    for (size_t i = 1; i <= genome->ConnectionGene->size; i++)
+    {
+        Connection* con;
+        Node* in, *out;
+        con = get(genome->ConnectionGene, i).connection;
+        if(!con) continue;
+        if(!con->enabled) continue;
+        in = get(genome->NodeGene, con->inNode).node;
+        out = get(genome->NodeGene, con->outNode).node;
+        DrawLine(in->x + 24, in->y, out->x - 24, out->y, PURPLE);
+    }
+    
+    
+}
+
+
+void coordinateGenome(Genome* genome){
+    size_t layer = GetScreenWidth() * 0.15;
+    size_t inBox = GetScreenHeight() / genome->input;
+    size_t outBox = GetScreenHeight() / genome->output;
+    size_t hiddenSpace = GetScreenWidth() - (layer * 2);
+    size_t hiddenNodes = genome->nodes - (genome->input + genome->output);
+    size_t hiddenLayers = ceil((double) hiddenNodes / genome->input);
+    size_t singleHiddenLayerSpace = hiddenSpace / hiddenLayers;
+
+    Node* node;
+
+    for (size_t i = 1; i <= genome->nodes; i++)
+    {
+        node = get(genome->NodeGene, i).node;
+        if (!node) continue;
+        switch (node->type)
+        {
+        case INPUT_NODE:
+            node->x = layer / 2;
+            node->y = (inBox * i) - (inBox / 2); 
+            break;
+        case OUTPUT_NODE:
+            node->x = GetScreenWidth() - layer / 2;
+            node->y = (outBox * (i - genome->input)) - (outBox / 2);
+            break;
+        case HIDDEN_NODE:
+        {
+            size_t nodeCount = i - genome->input - genome->output - 1;
+            size_t remaining = genome->nodes - i + 1;
+            size_t boxSize = genome->nodes - i + remaining >= genome->input ? inBox : GetScreenHeight() / remaining;
+            size_t NodeLayer = ceil((double)(nodeCount + 1) / genome->input);
+            node->x = layer + (singleHiddenLayerSpace * NodeLayer)  - (singleHiddenLayerSpace / 2);
+            node->y = boxSize * ((nodeCount % genome->input) + 1) - (boxSize / 2);
+        }
+        break;
+        
+        default:
+            break;
+        }
+    }
+    
 }
 
 int main(void) {
@@ -890,11 +969,13 @@ int main(void) {
     parent1->output = 1;
     printGenome(parent1);
     //////////////////////////////////////
+    coordinateGenome(parent1);
 
     while (!WindowShouldClose()) {
         BeginDrawing();
         ClearBackground(RAYWHITE);
-        DrawGenome(parent1);
+        //DrawGenome(parent1);
+        raylibGenome(parent1);
         EndDrawing();
         
     }
